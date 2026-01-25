@@ -1,6 +1,8 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 
+import { confirm, isCancel, select, text } from "@clack/prompts";
+
 import type { CommandHandler } from "./commands-types.js";
 
 type PlansArgs = {
@@ -69,6 +71,11 @@ export const handlePlansCommand: CommandHandler = async (params, allowTextComman
 
   const plansDir = path.join(params.workspaceDir, "plans");
 
+  const isInteractiveCli =
+    params.ctx.CommandSource === "cli" &&
+    Boolean(process.stdin.isTTY) &&
+    Boolean(process.stdout.isTTY);
+
   if (args.action === "help") {
     return {
       shouldContinue: false,
@@ -79,6 +86,8 @@ export const handlePlansCommand: CommandHandler = async (params, allowTextComman
           "  /plans show <name>\n" +
           "  /plans rename <old> <new>\n" +
           "  /plans trash <name>\n\n" +
+          "TUI:\n" +
+          "  /plans (with no args) opens an interactive picker in the CLI.\n\n" +
           "Notes:\n" +
           "- Plans are stored under workspace/plans/.\n" +
           "- Use /plan <goal> to start a new plan; /plans helps manage saved plan folders.",
@@ -93,6 +102,85 @@ export const handlePlansCommand: CommandHandler = async (params, allowTextComman
         shouldContinue: false,
         reply: { text: "No plans found yet. Create one with: /plan <goal>" },
       };
+    }
+
+    // Interactive picker only when running in the CLI TUI.
+    // For chat channels (Discord/Telegram/etc.), return plain text.
+    const wantsInteractive =
+      isInteractiveCli && (raw.trim() === "/plans" || raw.trim() === "/plans list");
+    if (wantsInteractive) {
+      const selected = await select({
+        message: "Select a plan",
+        options: names
+          .slice()
+          .reverse()
+          .map((n) => ({ label: n, value: n })),
+      });
+      if (isCancel(selected)) {
+        return { shouldContinue: false, reply: { text: "Cancelled." } };
+      }
+
+      const planName = String(selected);
+      const action = await select({
+        message: `Action for ${planName}`,
+        options: [
+          { label: "Show", value: "show" },
+          { label: "Rename", value: "rename" },
+          { label: "Trash", value: "trash" },
+        ],
+      });
+      if (isCancel(action)) {
+        return { shouldContinue: false, reply: { text: "Cancelled." } };
+      }
+
+      if (action === "show") {
+        const planDir = path.join(plansDir, planName);
+        const planMd = await readFirstExisting([
+          path.join(planDir, "plan.md"),
+          path.join(planDir, "README.md"),
+        ]);
+        if (!planMd) {
+          return {
+            shouldContinue: false,
+            reply: { text: `No plan.md found for '${planName}'. Looked in: ${planDir}` },
+          };
+        }
+        const trimmed = planMd.trim();
+        const preview =
+          trimmed.length > 6000 ? `${trimmed.slice(0, 6000)}\n\n…(truncated)` : trimmed;
+        return { shouldContinue: false, reply: { text: `Plan: ${planName}\n\n${preview}` } };
+      }
+
+      if (action === "rename") {
+        const next = await text({
+          message: `Rename '${planName}' to:`,
+          initialValue: planName,
+          validate: (v) => (!v?.trim() ? "Name required" : undefined),
+        });
+        if (isCancel(next)) return { shouldContinue: false, reply: { text: "Cancelled." } };
+        const toName = String(next).trim();
+        if (toName && toName !== planName) {
+          await fs.rename(path.join(plansDir, planName), path.join(plansDir, toName));
+        }
+        return {
+          shouldContinue: false,
+          reply: { text: `Renamed plan '${planName}' → '${toName}'.` },
+        };
+      }
+
+      if (action === "trash") {
+        const ok = await confirm({ message: `Move '${planName}' to trash?` });
+        if (isCancel(ok) || ok === false) {
+          return { shouldContinue: false, reply: { text: "Cancelled." } };
+        }
+        const fromDir = path.join(plansDir, planName);
+        const trashDir = path.join(plansDir, ".trash");
+        await fs.mkdir(trashDir, { recursive: true });
+        const stamped = `${planName}__${new Date().toISOString().replace(/[:.]/g, "-")}`;
+        const toDir = path.join(trashDir, stamped);
+        await fs.rename(fromDir, toDir);
+        return { shouldContinue: false, reply: { text: `Moved plan '${planName}' to trash.` } };
+      }
     }
 
     const lines = ["Plans:", ...names.map((n) => `- ${n}`), "", "Tip: /plans show <name>"];
