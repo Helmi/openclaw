@@ -422,10 +422,16 @@ export function renderApp(state: AppViewState) {
                   }
                 },
                 onLoadFiles: (agentId) => {
+                  const activeFileBeforeReload = state.agentFileActive;
                   void (async () => {
                     await loadAgentFiles(state, agentId);
-                    if (state.agentFileActive) {
-                      await loadAgentFileContent(state, agentId, state.agentFileActive, {
+                    // Ignore stale refresh callbacks after switching agents while the reload is in flight.
+                    if (state.agentsSelectedId && state.agentsSelectedId !== agentId) {
+                      return;
+                    }
+                    const fileToRefresh = state.agentFileActive ?? activeFileBeforeReload;
+                    if (fileToRefresh) {
+                      await loadAgentFileContent(state, agentId, fileToRefresh, {
                         force: true,
                         preserveDraft: true,
                       });
