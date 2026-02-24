@@ -155,8 +155,12 @@ export const FIELD_HELP: Record<string, string> = {
     "If true (default), stop assistant speech when the user starts speaking in Talk mode. Keep enabled for conversational turn-taking.",
   "agents.list.*.skills":
     "Optional allowlist of skills for this agent (omit = all skills; empty = no skills).",
+  "agents.list.*.memory.allowReadFrom":
+    'Allow this agent to read memory from other agents (ids or "*"); self is always allowed.',
   "agents.list[].skills":
     "Optional allowlist of skills for this agent (omit = all skills; empty = no skills).",
+  "agents.list[].memory.allowReadFrom":
+    'Allow this agent to read memory from other agents (ids or "*"); self is always allowed.',
   agents:
     "Agent runtime configuration root covering defaults and explicit agent entries used for routing and execution context. Keep this section explicit so model/tool behavior stays predictable across multi-agent workflows.",
   "agents.defaults":

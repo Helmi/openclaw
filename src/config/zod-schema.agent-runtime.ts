@@ -668,6 +668,13 @@ export const MemorySearchSchema = z
   })
   .strict()
   .optional();
+const AgentMemoryAccessSchema = z
+  .object({
+    allowReadFrom: z.array(z.string()).optional(),
+  })
+  .strict()
+  .optional();
+
 export { AgentModelSchema };
 export const AgentEntrySchema = z
   .object({
@@ -678,6 +685,7 @@ export const AgentEntrySchema = z
     agentDir: z.string().optional(),
     model: AgentModelSchema.optional(),
     skills: z.array(z.string()).optional(),
+    memory: AgentMemoryAccessSchema,
     memorySearch: MemorySearchSchema,
     humanDelay: HumanDelaySchema.optional(),
     heartbeat: HeartbeatSchema,
