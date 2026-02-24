@@ -78,4 +78,11 @@ Delete
 
 - `obsidian-cli delete "path/note"`
 
+Print note contents
+
+- `obsidian-cli print "Folder/Note name"` (alias: `p`)
+- `obsidian-cli print "Note name" --mentions` (include backlinks / linked mentions)
+- `-v` flag overrides the default vault: `obsidian-cli print "Note" -v myVault`
+- Output is raw Markdown to stdout — pipe to `less`, `bat`, `head`, etc. as needed
+
 Prefer direct edits when appropriate: open the `.md` file and change it; Obsidian will pick it up.
